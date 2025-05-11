@@ -1,0 +1,41 @@
+# Docker related
+**/*.log
+!Dockerfile*
+.dockerenv
+.dockerignore
+docker-compose*.yaml
+docker-compose*.yml
+.containerenv
+
+# VS Code specific
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/
+
+# Operating system specific files
+.DS_Store
+Thumbs.db
+
+# Temporary files and directories
+tmp/
+temp/
+__pycache__/
+*.pyc
+*.swp
+*.swo
+*.bak
+*.dump
+
+# Build artifacts (if any local builds are done outside Docker)
+build/
+dist/
+target/
+
+# SBOM related (if you generate them locally and don't want to track)
+sbom/
+*.sbom
+*.spdx
+*.json.sbom
