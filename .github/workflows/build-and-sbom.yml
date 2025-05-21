@@ -2,9 +2,9 @@ name: Build Secure jq Image and Generate SBOM
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   build:
