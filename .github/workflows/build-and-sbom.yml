@@ -19,7 +19,8 @@ env:
   IMAGE_NAME: jq-secure-image
   IMAGE_TAG: latest
   REGISTRY: ghcr.io # ---> IMPORTANT <--- Currently set to GHCR. Confirm if you want to switch from Docker Hub.
-  FULL_IMAGE_REF: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+  # Corrected line 22: Use format() to concatenate the string
+  FULL_IMAGE_REF: ${{ format('{0}/{1}/{2}:{3}', env.REGISTRY, github.repository_owner, env.IMAGE_NAME, env.IMAGE_TAG) }}
 
 jobs:
   secure-build:
