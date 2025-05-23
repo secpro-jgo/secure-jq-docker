@@ -68,13 +68,13 @@ jobs:
         run: |
           docker pull ${{ env.FULL_IMAGE_REF }}
 
-      - name: Syft SBOM Generation
-        uses: anchore/syft-action@v4
-        with:
-          image: ${{ env.FULL_IMAGE_REF }}
-          format: spdx-json
-          file: sbom.spdx.json
-          upload-to: ghcr.io
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Generate SBOM with Syft
+        run: |
+          syft ${{ env.FULL_IMAGE_REF }} -o spdx-json > sbom.spdx.json
 
       - name: Trivy Vulnerability Scan
         uses: aquasecurity/trivy-action@0.14
