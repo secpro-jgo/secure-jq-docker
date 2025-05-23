@@ -2,87 +2,91 @@ name: Secure Docker Build with SBOM and Vulnerability Scanning
 
 on:
   push:
-    branches: [ "master" ] # ---> IMPORTANT <--- Keep on 'master' as per your project setup
+    branches: [ "master" ]
     paths:
       - 'Dockerfile'
       - 'seccomp.json'
       - '.github/workflows/build-and-sbom.yml'
   pull_request:
-    branches: [ "master" ] # ---> IMPORTANT <--- Keep on 'master' as per your project setup
+    branches: [ "master" ]
     paths:
       - 'Dockerfile'
       - 'seccomp.json'
       - '.github/workflows/build-and-sbom.yml'
 
-# Environment variables available to all jobs
-env:
-  IMAGE_NAME: jq-secure-image
-  IMAGE_TAG: latest
-  REGISTRY: ghcr.io # ---> IMPORTANT <--- Currently set to GHCR. Confirm if you want to switch from Docker Hub.
-  # Corrected line 22: Use format() to concatenate the string
-  FULL_IMAGE_REF: ${{ format('{0}/{1}/{2}:{3}', env.REGISTRY, github.repository_owner, env.IMAGE_NAME, env.IMAGE_TAG) }}
-
 jobs:
   secure-build:
     runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: jq-secure-image
+      IMAGE_TAG: latest
+      REGISTRY: ghcr.io
+      # Note: We'll define FULL_IMAGE_REF within the job steps where it's needed
+      
     permissions:
       contents: read
       packages: write
-      security-events: write # For SARIF uploads
+      security-events: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Needed for SBOM to detect git info
+          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
-          driver-opts: network=host # Consider if truly necessary; remove if not
+          driver-opts: network=host
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }} # GITHUB_TOKEN is automatically available for GHCR
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push
         uses: docker/build-push-action@v5
         id: build-push
+        env:
+          FULL_IMAGE_REF: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64 # Multi-arch support
+          platforms: linux/amd64,linux/arm64
           tags: ${{ env.FULL_IMAGE_REF }}
-          push: ${{ github.event_name == 'push' }} # Pushes on any push event to the configured branch
-          provenance: true # SLSA Level 2 compliance
-          sbom: true # Generate build-time SBOM
+          push: ${{ github.event_name == 'push' }}
+          provenance: true
+          sbom: true
           seccomp: ./seccomp.json
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          outputs: type=image,name=${{ env.FULL_IMAGE_REF }},push=true # Ensure name matches tags
+          outputs: type=image,name=${{ env.FULL_IMAGE_REF }},push=true
 
       - name: Syft SBOM Generation
-        uses: anchore/syft-action@v3 # Updated to latest version
+        env:
+          FULL_IMAGE_REF: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+        uses: anchore/syft-action@v3
         with:
           image: ${{ env.FULL_IMAGE_REF }}
           format: spdx-json
           file: sbom.spdx.json
-          upload-to: ${{ env.REGISTRY }} # Attach SBOM to image in registry
+          upload-to: ${{ env.REGISTRY }}
 
       - name: Trivy Vulnerability Scan
-        uses: aquasecurity/trivy-action@0.14 # Updated version
+        env:
+          FULL_IMAGE_REF: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+        uses: aquasecurity/trivy-action@0.14
         with:
           image-ref: ${{ env.FULL_IMAGE_REF }}
-          format: 'sarif' # Better GitHub integration
+          format: 'sarif'
           exit-code: '1'
           severity: 'CRITICAL,HIGH'
-          ignore-unfixed: false # Show all vulnerabilities
+          ignore-unfixed: false
           vuln-type: 'os,library'
           output: trivy-results.sarif
-          upload-to: ${{ env.REGISTRY }} # Attach scan results to image
+          upload-to: ${{ env.REGISTRY }}
 
       - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@v3
@@ -90,12 +94,14 @@ jobs:
           sarif_file: trivy-results.sarif
 
       - name: Docker Scout Analysis
-        if: always() # Run even if previous steps fail
+        if: always()
+        env:
+          FULL_IMAGE_REF: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
         uses: docker/scout-action@v1
         with:
           image: ${{ env.FULL_IMAGE_REF }}
           output: summary
-          severity: high,critical # Specify desired severity for the summary report
+          severity: high,critical
 
       - name: Archive outputs
         uses: actions/upload-artifact@v4
