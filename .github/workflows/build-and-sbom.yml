@@ -2,13 +2,13 @@ name: Build Docker Image and Generate SBOM
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master" ] # ---> IMPORTANT <--- Ensure this matches your active project branch (master)
     paths:
       - 'Dockerfile'
       - 'seccomp.json'
-      - '.github/workflows/build-and-sbom.yml'
+      - '.github/workflows/build-and-sbom.yml' # Trigger if the workflow file itself changes
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master" ] # ---> IMPORTANT <--- Ensure this matches your active project branch (master)
     paths:
       - 'Dockerfile'
       - 'seccomp.json'
@@ -18,9 +18,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write # Required for pushing to GHCR
-      #id-token: write # If you plan to use OIDC for GHCR login, not strictly needed for DOCKERHUB_TOKEN
+      contents: read # Required for actions/checkout
+      packages: write # Required for pushing to GitHub Container Registry (if using ghcr.io)
+      # id-token: write # Uncomment if using OIDC for GHCR login, not strictly needed for DOCKERHUB_TOKEN
 
     steps:
       - name: Checkout code
@@ -29,56 +29,64 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub # Or GitHub Container Registry if you prefer ghcr.io
+      # This step logs into Docker Hub. Ensure DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets are set in GitHub.
+      # If you prefer to push to GitHub Container Registry (GHCR), uncomment the GHCR lines below and comment out Docker Hub ones.
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }} # Use DOCKERHUB_USERNAME
-          password: ${{ secrets.DOCKERHUB_TOKEN }}   # Use DOCKERHUB_TOKEN
-          # If using GHCR, use:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          # For GHCR, use:
           # registry: ghcr.io
           # username: ${{ github.actor }}
-          # password: ${{ secrets.GITHUB_TOKEN }} # This secret is automatically available
+          # password: ${{ secrets.GITHUB_TOKEN }} # GITHUB_TOKEN is automatically available
 
 
       - name: Build and Push the Docker image
         uses: docker/build-push-action@v5
-        id: build-push # Keep this ID, it's used to reference the image
+        id: build-push # This ID is used by subsequent steps to reference the image
         with:
           context: .
           file: ./Dockerfile
-          security-opt: seccomp=seccomp.json # Apply Seccomp profile at build time
-          # Use the correct tag for Docker Hub or GHCR
-          tags: secpro-jgo/jq-secure-image:latest # <--- REPLACE with YOUR Docker Hub username/image name, or ghcr.io/${{ github.repository_owner }}/jq-secure-image:latest for GHCR
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }} # Only push on push to master
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          # IMPORTANT: This output makes the image tag available to subsequent steps
-          output: type=image,name=secpro-jgo/jq-secure-image:latest # <--- REPLACE with the SAME tag as above!
+          security-opt: seccomp=seccomp.json # Applies the seccomp profile during the build process
+          # target: # Uncomment and specify if you have a specific target stage in your Dockerfile (e.g., target: final)
+          # ---> IMPORTANT <--- Replace with your actual Docker Hub username and desired image name!
+          # Example: tags: your-dockerhub-username/jq-secure-image:latest
+          tags: secpro-jgo/jq-secure-image:latest
+          # Only push the image to the registry if it's a 'push' event to the 'master' branch
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+          cache-from: type=gha # Enable caching for faster builds
+          cache-to: type=gha,mode=max # Enable caching for faster builds
+          # ---> IMPORTANT <--- This output is critical for Trivy and Syft to find the image
+          output: type=image,name=secpro-jgo/jq-secure-image:latest # MUST match the tags above
+
 
       - name: Scan Docker image with Trivy
-        uses: aquasecurity/trivy-action@master # Or a specific version like @0.20.0
+        uses: aquasecurity/trivy-action@v0 # ---> IMPORTANT <--- Using @v0 for stability
         with:
-          # Use the image tag from the previous build step's output
-          image-ref: secpro-jgo/jq-secure-image:latest # <--- REPLACE with the SAME tag as above!
-          format: 'table'
-          exit-code: '1'
-          severity: 'CRITICAL,HIGH'
-          ignore-unfixed: true
-          output: 'trivy-results.json'
+          # ---> IMPORTANT <--- Image to scan MUST match the tag from the build step!
+          image-ref: secpro-jgo/jq-secure-image:latest
+          format: 'table' # Output format: 'table', 'json', 'sarif'
+          exit-code: '1' # Fail the workflow if any vulnerabilities are found
+          severity: 'CRITICAL,HIGH' # Only report critical and high severity
+          ignore-unfixed: true # Ignore vulnerabilities without a fix
+          # You can also use .trivyignore file in your repo root for specific ignores
+          output: 'trivy-results.json' # Save results to a file for artifact upload
 
       - name: Upload Trivy scan results as artifact
         uses: actions/upload-artifact@v4
         with:
           name: trivy-scan-results
-          path: trivy-results.json
+          path: trivy-results.json # Path to the output file from Trivy
+
 
       - name: Generate SBOM with Syft
-        uses: anchore/syft-action@v0
+        uses: anchore/syft-action@v1 # ---> IMPORTANT <--- Corrected version to v1
         with:
-          # Use the image tag from the previous build step's output
-          image: secpro-jgo/jq-secure-image:latest # <--- REPLACE with the SAME tag as above!
-          output: spdx-json
-          file: sbom.spdx-json
+          # ---> IMPORTANT <--- Image to scan MUST match the tag from the build step!
+          image: secpro-jgo/jq-secure-image:latest
+          output: spdx-json # Output format: spdx-json, cyclonedx-json, etc.
+          file: sbom.spdx-json # Name of the SBOM file to be created
 
       - name: Upload SBOM as artifact
         uses: actions/upload-artifact@v4
