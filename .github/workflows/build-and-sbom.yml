@@ -89,8 +89,6 @@ jobs:
       - name: Run Trivy Vulnerability Scan with CLI
         run: |
           trivy image --format sarif --severity CRITICAL,HIGH --ignore-unfixed --vuln-type os,library ${{ env.FULL_IMAGE_REF }} > trivy-results.sarif
-          # Note: The 'upload-to: ghcr.io' feature for scan results is only available with aquasecurity/trivy-action.
-          # For direct CLI, results are saved to trivy-results.sarif and uploaded to GitHub Security tab below.
 
       - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@v3
@@ -104,6 +102,7 @@ jobs:
           image: ${{ env.FULL_IMAGE_REF }}
           output: summary
           severity: high,critical
+          token: ${{ secrets.DOCKER_HUB_PAT }} # Make sure you've created this secret in GitHub!
 
       - name: Archive outputs
         uses: actions/upload-artifact@v4
