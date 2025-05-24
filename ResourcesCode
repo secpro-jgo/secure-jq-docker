@@ -1,0 +1,24 @@
+adminsecops@SecOpsCisspLab:~/Downloads$ cd squashfs-root
+adminsecops@SecOpsCisspLab:~/Downloads/squashfs-root$ ./AppRun
+[21952:0520/232512.907306:FATAL:setuid_sandbox_host.cc(163)] The SUID sandbox helper binary was found, but is not configured correctly. Rather than run without sandboxing I'm aborting now. You need to make sure that /home/adminsecops/Downloads/squashfs-root/usr/share/cursor/chrome-sandbox is owned by root and has mode 4755.
+Trace/breakpoint trap (core dumped)
+adminsecops@SecOpsCisspLab:~/Downloads/squashfs-root$ cd /home/adminsecops/Downloads/squashfs-root/usr/share/cursor/
+adminsecops@SecOpsCisspLab:~/Downloads/squashfs-root/usr/share/cursor$ sudo chown root:root chrome-sandbox
+adminsecops@SecOpsCisspLab:~/Downloads/squashfs-root/usr/share/cursor$ sudo chmod 4755 chrome-sandbox
+adminsecops@SecOpsCisspLab:~/Downloads/squashfs-root/usr/share/cursor$ cd ..
+adminsecops@SecOpsCisspLab:~/Downloads/squashfs-root/usr/share$ cd ..
+adminsecops@SecOpsCisspLab:~/Downloads/squashfs-root/usr$ cd ..
+adminsecops@SecOpsCisspLab:~/Downloads/squashfs-root$ ./AppRun
+[main 2025-05-21T03:27:37.511Z] updateURL https://api2.cursor.sh/updates/api/update/linux-x64/cursor/0.50.5/8bd931861efaa0e848a40943a6de0b55c876e57c36140cb24cffed4ef0c2fcc0/stable
+[main 2025-05-21T03:27:37.515Z] update#setState idle
+[main 2025-05-21T03:28:07.516Z] update#setState checking for updates
+[main 2025-05-21T03:28:07.554Z] update#setState idle
+[22509:0520/235750.099149:ERROR:atom_cache.cc(229)] Add WM_CHANGE_STATE to kAtomsToCache
+^C[main 2025-05-21T03:57:52.632Z] [UtilityProcess type: shared-process, pid: 22654]: crashed with code 2 and reason 'killed'
+[main 2025-05-21T03:57:52.641Z] [UtilityProcessWorker]: terminated unexpectedly with code 2, signal: unknown
+[main 2025-05-21T03:57:52.643Z] [UtilityProcess id: 1, type: fileWatcher, pid: 22655]: crashed with code 2 and reason 'killed'
+[main 2025-05-21T03:57:52.689Z] Extension host with pid 22674 exited with code: 2, signal: unknown.
+[main 2025-05-21T03:57:52.691Z] [UtilityProcess id: 1, type: extensionHost, pid: 22674]: crashed with code 2 and reason 'killed'
+[main 2025-05-21T03:57:54.761Z] Extension host with pid 29844 exited with code: 0, signal: unknown.
+adminsecops@SecOpsCisspLab:~/Downloads/squashfs-root$ ./AppRun
+
