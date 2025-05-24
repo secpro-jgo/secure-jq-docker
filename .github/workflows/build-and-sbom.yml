@@ -102,7 +102,9 @@ jobs:
           image: ${{ env.FULL_IMAGE_REF }}
           output: summary
           severity: high,critical
-          token: ${{ secrets.DOCKER_HUB_PAT }} # Make sure you've created this secret in GitHub!
+          # Use a single Docker Hub Personal Access Token for authentication
+          # Ensure you have a GitHub secret named DOCKER_HUB_PAT containing your Docker Hub PAT.
+          token: ${{ secrets.DOCKER_HUB_PAT }} # This replaces dockerhub-user and dockerhub-password
 
       - name: Archive outputs
         uses: actions/upload-artifact@v4
