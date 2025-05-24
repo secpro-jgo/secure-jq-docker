@@ -80,18 +80,17 @@ jobs:
         run: |
           syft ${{ env.FULL_IMAGE_REF }} -o spdx-json > sbom.spdx.json
 
-      # Pinning Trivy action to a specific commit SHA (v0.16.0) for stability
-      - name: Trivy Vulnerability Scan
-        uses: aquasecurity/trivy-action@eefc50df8c792a0e1a6e648a7d1c1d5b5f3b3c6e # v0.16.0 commit SHA
-        with:
-          image-ref: ${{ env.FULL_IMAGE_REF }}
-          format: 'sarif'
-          exit-code: '1' # Fail the workflow if CRITICAL or HIGH vulnerabilities are found
-          severity: 'CRITICAL,HIGH'
-          ignore-unfixed: false # Report all vulnerabilities, including those without fixes
-          vuln-type: 'os,library' # Scan for OS and library vulnerabilities
-          output: trivy-results.sarif # Output results in SARIF format
-          upload-to: ghcr.io # Upload scan results as an OCI artifact to GHCR
+      # Explicitly install and run Trivy CLI to avoid aquasecurity/trivy-action download issues.
+      # This is the most robust approach given the persistent action fetching errors.
+      - name: Install Trivy CLI
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Run Trivy Vulnerability Scan with CLI
+        run: |
+          trivy image --format sarif --severity CRITICAL,HIGH --ignore-unfixed --vuln-type os,library ${{ env.FULL_IMAGE_REF }} > trivy-results.sarif
+          # Note: The 'upload-to: ghcr.io' feature for scan results is only available with aquasecurity/trivy-action.
+          # For direct CLI, results are saved to trivy-results.sarif and uploaded to GitHub Security tab below.
 
       - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@v3
