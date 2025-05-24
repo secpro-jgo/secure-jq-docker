@@ -25,13 +25,13 @@ jobs:
     permissions:
       contents: read
       packages: write
-      security-events: write
+      security-events: write # For SARIF uploads
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # Needed for SBOM to detect git info
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -45,6 +45,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # This step sets the FULL_IMAGE_REF variable in the GitHub Actions environment
+      # so it can be used by subsequent steps in this job. This resolves the 'env' context error.
       - name: Set FULL_IMAGE_REF Variable
         run: echo "FULL_IMAGE_REF=${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
 
@@ -68,25 +70,28 @@ jobs:
         run: |
           docker pull ${{ env.FULL_IMAGE_REF }}
 
-      - name: Install Syft
+      # Explicitly install and run Syft CLI to avoid anchore/syft-action download issues.
+      # This method is more robust against 'Missing download info' errors for specific actions.
+      - name: Install Syft CLI
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
 
-      - name: Generate SBOM with Syft
+      - name: Generate SBOM with Syft CLI
         run: |
           syft ${{ env.FULL_IMAGE_REF }} -o spdx-json > sbom.spdx.json
 
+      # Pinning Trivy action to a specific commit SHA (v0.16.0) for stability
       - name: Trivy Vulnerability Scan
-        uses: aquasecurity/trivy-action@v0.16.0
+        uses: aquasecurity/trivy-action@eefc50df8c792a0e1a6e648a7d1c1d5b5f3b3c6e # v0.16.0 commit SHA
         with:
           image-ref: ${{ env.FULL_IMAGE_REF }}
           format: 'sarif'
-          exit-code: '1'
+          exit-code: '1' # Fail the workflow if CRITICAL or HIGH vulnerabilities are found
           severity: 'CRITICAL,HIGH'
-          ignore-unfixed: false
-          vuln-type: 'os,library'
-          output: trivy-results.sarif
-          upload-to: ghcr.io
+          ignore-unfixed: false # Report all vulnerabilities, including those without fixes
+          vuln-type: 'os,library' # Scan for OS and library vulnerabilities
+          output: trivy-results.sarif # Output results in SARIF format
+          upload-to: ghcr.io # Upload scan results as an OCI artifact to GHCR
 
       - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@v3
@@ -94,7 +99,7 @@ jobs:
           sarif_file: trivy-results.sarif
 
       - name: Docker Scout Analysis
-        if: always()
+        if: always() # Run this step even if previous steps fail
         uses: docker/scout-action@v1
         with:
           image: ${{ env.FULL_IMAGE_REF }}
