@@ -80,11 +80,11 @@ jobs:
         run: |
           syft ${{ env.FULL_IMAGE_REF }} -o spdx-json > sbom.spdx.json
 
-      # Explicitly install and run Trivy CLI to avoid aquasecurity/trivy-action download issues.
+      # Explicitly install and run Trivy CLI to avoid aquasecurity/trivy/main/contrib/install.sh.
       # This is the most robust approach given the persistent action fetching errors.
       - name: Install Trivy CLI
         run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh s -- -b /usr/local/bin
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Run Trivy Vulnerability Scan with CLI
         run: |
