@@ -84,7 +84,7 @@ jobs:
       # This is the most robust approach given the persistent action fetching errors.
       - name: Install Trivy CLI
         run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh s -- -b /usr/local/bin
 
       - name: Run Trivy Vulnerability Scan with CLI
         run: |
@@ -100,11 +100,13 @@ jobs:
         uses: docker/scout-action@v1
         with:
           image: ${{ env.FULL_IMAGE_REF }}
+          command: cve # REQUIRED: Specify the command for Docker Scout (e.g., 'cve' for vulnerabilities).
           output: summary
           severity: high,critical
-          # Use a single Docker Hub Personal Access Token for authentication
+          # Use a single Docker Hub Personal Access Token for authentication.
           # Ensure you have a GitHub secret named DOCKER_HUB_PAT containing your Docker Hub PAT.
-          token: ${{ secrets.DOCKER_HUB_PAT }} # This replaces dockerhub-user and dockerhub-password
+          # This 'token' input is the primary method for authentication with Docker Scout.
+          token: ${{ secrets.DOCKER_HUB_PAT }}
 
       - name: Archive outputs
         uses: actions/upload-artifact@v4
