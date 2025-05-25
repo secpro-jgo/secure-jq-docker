@@ -46,11 +46,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # This step sets the FULL_IMAGE_REF variable in the GitHub Actions environment
-      # so it can be used by subsequent steps in this job. This resolves the 'env' context error.
+      # so it can be used by subsequent steps in this job.
       - name: Set FULL_IMAGE_REF Variable
         run: echo "FULL_IMAGE_REF=${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
 
-      - name: Build and Push
+      - name: Build and Push Container
         uses: docker/build-push-action@v5
         id: build-push
         with:
@@ -70,8 +70,7 @@ jobs:
         run: |
           docker pull ${{ env.FULL_IMAGE_REF }}
 
-      # Explicitly install and run Syft CLI to avoid anchore/syft-action download issues.
-      # This method is more robust against 'Missing download info' errors for specific actions.
+      # Reverting to explicit CLI installs for robustness against download issues.
       - name: Install Syft CLI
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
@@ -80,8 +79,7 @@ jobs:
         run: |
           syft ${{ env.FULL_IMAGE_REF }} -o spdx-json > sbom.spdx.json
 
-      # Explicitly install and run Trivy CLI to avoid aquasecurity/trivy/main/contrib/install.sh.
-      # This is the most robust approach given the persistent action fetching errors.
+      # Reverting to explicit CLI installs for robustness against download issues.
       - name: Install Trivy CLI
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
@@ -95,20 +93,19 @@ jobs:
         with:
           sarif_file: trivy-results.sarif
 
-      - name: Docker Scout Analysis
+      - name: Run Docker Scout Analysis
         if: always() # Run this step even if previous steps fail
         uses: docker/scout-action@v1
         with:
           image: ${{ env.FULL_IMAGE_REF }}
           command: cve # REQUIRED: Specify the command for Docker Scout (e.g., 'cve' for vulnerabilities).
           output: summary
-          severity: high,critical
+          severity: high,critical # Crucial for filtering and was missing in your last proposed YAML
           # Use a single Docker Hub Personal Access Token for authentication.
           # Ensure you have a GitHub secret named DOCKER_HUB_PAT containing your Docker Hub PAT.
-          # This 'token' input is the primary method for authentication with Docker Scout.
-          token: ${{ secrets.DOCKER_HUB_PAT }}
+          token: ${{ secrets.DOCKER_HUB_PAT }} # THIS IS CRITICAL FOR AUTHENTICATION
 
-      - name: Archive outputs
+      - name: Archive security reports
         uses: actions/upload-artifact@v4
         with:
           name: security-reports
@@ -116,3 +113,6 @@ jobs:
             sbom.spdx.json
             trivy-results.sarif
           retention-days: 7
+
+      - name: Cleanup Temporary Files
+        run: rm -rf sbom.spdx.json trivy-results.sarif
